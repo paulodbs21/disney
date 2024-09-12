@@ -1,3 +1,40 @@
+<?php
+$id = isset($_GET['id']) ? $_GET['id'] : '';
+
+$api_url = "https://embedflix.co/disney/dados.json";
+$response = file_get_contents($api_url);
+$data = json_decode($response, true);
+
+$event = null;
+foreach ($data as $item) {
+    if ($item['id'] === $id) {
+        $event = $item;
+        break;
+    }
+}
+
+if (!$event) {
+    echo "Evento não encontrado/iniciado.";
+    exit;
+}
+
+$title = $event['title'];
+$image = $event['img'];
+$prompt = $event['prompt'];
+$status = $event['status'];
+// Localiza a posição de .m3u8 na URL
+$m3u8Position = strpos($event['url'], '.m3u8');
+
+// Se .m3u8 for encontrado, corta a string até essa posição
+if ($m3u8Position !== false) {
+    $file = substr($event['url'], 0, $m3u8Position + 5); // +5 para incluir '.m3u8'
+} else {
+    $file = $event['url']; // Caso .m3u8 não seja encontrado, usa a URL completa
+}
+
+list($keyId, $key) = explode(':', $event['clearkey']);
+?>
+
 <html>
 <head>
     <title><?php echo $title; ?> | Star+</title>
@@ -8,44 +45,70 @@
     <link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/gh/reidoscanais/rdc@main/assets/css/player-v3.1.min.css">
     <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/reidoscanais/rdc@main/assets/css/hotstar.css">
     <script src="//cdn.jsdelivr.net/gh/reidoscanais/rdc@main/assets/jwplayer/jwplayer.latest.js"></script>
-<script type="text/javascript" data-cfasync="false">
-
 </head>
 <body style="padding: 0px; margin:0px;">
 <script src="//ssl.p.jwpcdn.com/player/v/8.21.0/jwplayer.js"></script>
 <script> jwplayer.key = 'ITWMv7t88JGzI0xPwW8I0+LveiXX9SWbfdmt0ArUSyc='; </script>
 <div id="player"></div>
 <script>
-    var playerInstance = jwplayer("player");
-    playerInstance.setup({
-        playlist: [{
-            "title": "<?php echo $title; ?>",
-            "image": "<?php echo $image; ?>",
-            "sources": [{
-                "default": true,
-                "type": "mpd",
-                "file": "https://otte.live.ll.ww.aiv-cdn.net/iad-nitro/startover/clients/dash/manipulated-manifest-iad-prod/enc/dvakn45jfq/out/v1/e12cc82203eb499a926775db6e615edd/1fe45ac7-d138-4cb7-b528-4b13e09d1e82-cenc.mpd",
-                "drm": {
-                    "clearkey": {
-                        "keyId": "9752ef72590ef441ffa3731e0486fbc0",
-                        "key": "db63ec7b9f11348b7cc6808a54c99457"
-                    }
-                },
-                "label": "0"
-            }]
-        }],
-        width: "100%",
-        height: "100%",
-        autostart: false,
-        logo: {
-            file: '',
-            link: '',
-            position: 'top-right'
-        },
-        sharing: {}
-    });
-</script>
+    // Lista de domínios
+    var domains = [
+        "https://redirect.contasshbrasil.workers.dev/",
+        "https://cdn.suporte-superlojinha.workers.dev/",
+    ];
 
+    // URL do vídeo de erro
+    var errorVideoUrl = "https://embedflix.co/disney/intro.mp4"; // Altere para a URL do vídeo de erro
+
+    // Seleciona um domínio aleatório
+    function getRandomDomain() {
+        var randomIndex = Math.floor(Math.random() * domains.length);
+        return domains[randomIndex];
+    }
+
+    // Função para configurar o player
+    function setupPlayer() {
+        var playerInstance = jwplayer("player");
+        playerInstance.setup({
+            playlist: [{
+                "title": "<?php echo $title; ?> | Horario: <?php echo  $status; ?> <?php echo  $prompt; ?>",
+                "image": "<?php echo $image; ?>",
+                "sources": [{
+                    "default": true,
+                    "type": "dash",
+                    "file": getRandomDomain() + "<?php echo $file; ?>",
+                    "drm": {
+                        "clearkey": {
+                            "keyId": "<?php echo $keyId; ?>",
+                            "key": "<?php echo $key; ?>"
+                        }
+                    },
+                    "label": "5"
+                }],
+            }],
+            width: "100%",
+            height: "100%",
+            autostart: false,
+            logo: {
+                file: '',
+                link: '',
+                position: 'top-right'
+            },
+            sharing: {}
+        });
+
+        // Evento para detectar erro de reprodução
+        playerInstance.on('error', function() {
+            playerInstance.load({
+                file: errorVideoUrl
+            });
+            playerInstance.play();
+        });
+    }
+
+    // Configura o player quando o DOM estiver pronto
+    document.addEventListener("DOMContentLoaded", setupPlayer);
+</script>
 <div style="display:none;">
                 <script id="_wauo4c">var _wau = _wau || []; _wau.push(["dynamic", "embedflix", "o4c", "c4302bffffff", "small"]);</script>
                 <script async src="//waust.at/d.js"></script>
